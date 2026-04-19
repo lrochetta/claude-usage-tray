@@ -6,6 +6,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), semver.
 
 ---
 
+## [0.3.0] - 2026-04-19
+
+Minor — tray icon now shows the number directly.
+
+### Changed
+- **Tray icon**: the session percentage is now drawn **as digits on top of the gauge bar**, not just implied by the colored fill. Previous versions required hovering for the tooltip to know the exact value.
+- **Font**: purpose-built 3×5 bitmap glyph atlas (digits + `!` / `+` placeholders) rendered at ×3 scale with a 1-px black halo on a white foreground. Readable at 16×16, 24×24, and 32×32 tray sizes across Windows DPI settings.
+- **100% state**: displays `!!` instead of "100" so the alert is unmistakable when you've blown past the session limit (the icon color is red as well).
+- **Empty state**: unchanged (outlined gauge, no digits — signals "no data yet" vs "0%").
+
+### Known limitation
+- Windows hides tray icons behind the `^` overflow arrow by default. To pin `claude-usage-tray` permanently next to the clock: right-click the taskbar → Taskbar settings → Other system tray icons → toggle **claude-usage-tray** to **On**. (Windows does not let applications pin themselves — this is a user-controlled setting.)
+
+---
+
 ## [0.2.0] - 2026-04-19
 
 Minor — in-app auto-update from GitHub Releases.
