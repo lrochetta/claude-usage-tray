@@ -1,4 +1,5 @@
 # claude-usage-tray
+<img width="363" height="144" alt="image" src="https://github.com/user-attachments/assets/b6248ea0-7f7b-43cb-a48e-9c4c864d9ed1" />
 
 > Windows system tray indicator for Claude Code session + weekly usage %. Live color-coded dot next to your clock, local SQLite history, interactive stats.
 
