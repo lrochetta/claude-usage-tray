@@ -77,6 +77,39 @@ pub fn build_stats_window(event_loop: &ActiveEventLoop, html: &str) -> Result<Su
     Ok(SubWindow { webview, window })
 }
 
+/// Small modal that hosts an in-app webview with IPC so the HTML can
+/// call `window.ipc.postMessage("install" | "later" | "close")` to
+/// signal button clicks back to Rust.
+pub fn build_update_window<F>(
+    event_loop: &ActiveEventLoop,
+    html: &str,
+    ipc_handler: F,
+) -> Result<SubWindow>
+where
+    F: Fn(String) + Send + 'static,
+{
+    let size = LogicalSize::new(540.0, 620.0);
+    let mut attrs = WindowAttributes::default()
+        .with_title("claude-usage-tray — Update")
+        .with_inner_size(size)
+        .with_resizable(true);
+    if let Some(p) = bottom_right(event_loop, size) {
+        attrs = attrs.with_position(p);
+    }
+    let window = event_loop
+        .create_window(attrs)
+        .context("create update window")?;
+    let webview = WebViewBuilder::new()
+        .with_html(html)
+        .with_ipc_handler(move |req: wry::http::Request<String>| {
+            let body = req.body().clone();
+            ipc_handler(body);
+        })
+        .build(&window)
+        .context("build update webview")?;
+    Ok(SubWindow { webview, window })
+}
+
 pub fn build_settings_window(event_loop: &ActiveEventLoop, data_dir: PathBuf) -> Result<SubWindow> {
     let size = LogicalSize::new(980.0, 740.0);
     let mut attrs = WindowAttributes::default()

@@ -7,6 +7,7 @@ mod commands;
 mod icons;
 mod poller;
 mod tray_ui;
+mod updater;
 mod webviews;
 
 use anyhow::{Context, Result};
@@ -19,17 +20,27 @@ use tracing::{error, info, warn};
 use tray_icon::menu::MenuEvent;
 use tray_icon::TrayIconEvent;
 use tray_ui::TrayUi;
+use updater::UpdateInfo;
 use webviews::SubWindow;
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
-use winit::event_loop::{ActiveEventLoop, EventLoop};
+use winit::event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy};
 use winit::window::WindowId;
+
+const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug)]
 enum UserEvent {
     Menu(MenuEvent),
     Tray(TrayIconEvent),
     Poller(PollerUpdate),
+    /// Startup auto-check found a newer version.
+    UpdateAvailable(UpdateInfo),
+    /// Manual "Check for updates…" completed. `None` → up to date or error.
+    UpdateCheckFinished(Option<UpdateInfo>),
+    /// User clicked a button in the update modal (IPC). Body is one of:
+    /// "install" / "later" / "close".
+    UpdateModalAction(String),
 }
 
 struct App {
@@ -39,6 +50,9 @@ struct App {
     poller_cmd_tx: Sender<PollerCommand>,
     stats_window: Option<SubWindow>,
     settings_window: Option<SubWindow>,
+    update_window: Option<SubWindow>,
+    pending_update: Option<UpdateInfo>,
+    proxy: EventLoopProxy<UserEvent>,
 }
 
 impl ApplicationHandler<UserEvent> for App {
@@ -64,6 +78,10 @@ impl ApplicationHandler<UserEvent> for App {
             }
             if self.settings_window.as_ref().is_some_and(|w| w.id() == id) {
                 self.settings_window = None;
+                return;
+            }
+            if self.update_window.as_ref().is_some_and(|w| w.id() == id) {
+                self.update_window = None;
             }
         }
     }
@@ -75,6 +93,11 @@ impl ApplicationHandler<UserEvent> for App {
                 // Reserved for future: left-click to open the stats modal.
             }
             UserEvent::Poller(u) => self.handle_poller_update(u),
+            UserEvent::UpdateAvailable(info) => self.handle_update_found(event_loop, info),
+            UserEvent::UpdateCheckFinished(maybe) => {
+                self.handle_manual_check_result(event_loop, maybe)
+            }
+            UserEvent::UpdateModalAction(body) => self.handle_update_action(event_loop, body),
         }
     }
 }
@@ -132,6 +155,25 @@ impl App {
                     ui.show_error(&format!("autostart: {}", e));
                 }
             },
+            Command::CheckForUpdates => {
+                info!("manual update check requested");
+                // Spawn background thread; result goes back via UserEvent.
+                let proxy = self.proxy.clone();
+                std::thread::Builder::new()
+                    .name("manual-update-check".into())
+                    .spawn(move || match updater::check_for_update(CURRENT_VERSION) {
+                        Ok(maybe) => {
+                            let _ = proxy.send_event(UserEvent::UpdateCheckFinished(maybe));
+                        }
+                        Err(e) => {
+                            warn!("update check failed: {:#}", e);
+                            let _ = proxy.send_event(UserEvent::UpdateCheckFinished(None));
+                        }
+                    })
+                    .ok();
+                // Also mark last check in config.
+                touch_last_update_check();
+            }
             Command::Quit => {
                 let _ = self.poller_cmd_tx.send(PollerCommand::Quit);
                 event_loop.exit();
@@ -147,6 +189,79 @@ impl App {
                 ui.show_rate_limited(retry_after_secs)
             }
             PollerUpdate::Error(e) => ui.show_error(&e),
+        }
+    }
+
+    fn handle_update_found(&mut self, event_loop: &ActiveEventLoop, info: UpdateInfo) {
+        info!(latest = %info.latest, "update available");
+        self.pending_update = Some(info.clone());
+        self.open_update_modal(event_loop, &updater::render_update_html(&info));
+    }
+
+    fn handle_manual_check_result(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        maybe: Option<UpdateInfo>,
+    ) {
+        if let Some(info) = maybe {
+            self.handle_update_found(event_loop, info);
+        } else {
+            // Up-to-date toast.
+            self.open_update_modal(event_loop, &updater::render_uptodate_html(CURRENT_VERSION));
+        }
+    }
+
+    fn open_update_modal(&mut self, event_loop: &ActiveEventLoop, html: &str) {
+        if let Some(win) = &self.update_window {
+            win.focus();
+            return;
+        }
+        let proxy = self.proxy.clone();
+        let handler = move |body: String| {
+            let _ = proxy.send_event(UserEvent::UpdateModalAction(body));
+        };
+        match webviews::build_update_window(event_loop, html, handler) {
+            Ok(sw) => self.update_window = Some(sw),
+            Err(e) => {
+                error!("update modal failed: {:#}", e);
+                if let Some(ui) = self.ui.as_mut() {
+                    ui.show_error(&format!("update modal: {}", e));
+                }
+            }
+        }
+    }
+
+    fn handle_update_action(&mut self, event_loop: &ActiveEventLoop, body: String) {
+        match body.as_str() {
+            "install" => {
+                let Some(info) = self.pending_update.clone() else {
+                    warn!("install requested but no pending update");
+                    self.update_window = None;
+                    return;
+                };
+                info!(version = %info.latest, "installing update…");
+                // Drop the modal immediately for visual feedback.
+                self.update_window = None;
+                match updater::install_update(&info) {
+                    Ok(()) => {
+                        info!("update installed; exiting so next launch runs the new binary");
+                        let _ = self.poller_cmd_tx.send(PollerCommand::Quit);
+                        event_loop.exit();
+                    }
+                    Err(e) => {
+                        error!("install failed: {:#}", e);
+                        if let Some(ui) = self.ui.as_mut() {
+                            ui.show_error(&format!("update install: {}", e));
+                        }
+                    }
+                }
+            }
+            "later" | "close" => {
+                self.update_window = None;
+            }
+            other => {
+                warn!(action = %other, "unknown update modal IPC action");
+            }
         }
     }
 }
@@ -165,6 +280,52 @@ fn open_stats_in_browser(html: &str) -> Result<()> {
     Ok(())
 }
 
+/// Best-effort: load the config, bump `auto_update.last_check_ts_ms`, save.
+/// Silent on any failure — this is a non-critical optimization.
+fn touch_last_update_check() {
+    let Ok(mut cfg) = Config::load_or_default() else {
+        return;
+    };
+    cfg.auto_update.last_check_ts_ms = jiff::Timestamp::now().as_millisecond();
+    let _ = cfg.save();
+}
+
+/// Spawn a one-shot startup update check if enabled and the throttle allows.
+fn maybe_spawn_startup_update_check(cfg: &Config, proxy: EventLoopProxy<UserEvent>) {
+    if !cfg.auto_update.check_enabled {
+        info!("auto_update.check_enabled = false, skipping startup check");
+        return;
+    }
+    let now_ms = jiff::Timestamp::now().as_millisecond();
+    let since = now_ms - cfg.auto_update.last_check_ts_ms;
+    let interval_ms = (cfg.auto_update.check_interval_hours as i64) * 3600_000;
+    if since <= interval_ms {
+        info!(
+            "last update check was {}h ago (<{}h throttle), skipping",
+            since / 3600_000,
+            cfg.auto_update.check_interval_hours
+        );
+        return;
+    }
+    // Update throttle timestamp before the request so parallel launches don't race.
+    touch_last_update_check();
+    std::thread::Builder::new()
+        .name("startup-update-check".into())
+        .spawn(move || match updater::check_for_update(CURRENT_VERSION) {
+            Ok(Some(info)) => {
+                info!(latest = %info.latest, "startup: update available");
+                let _ = proxy.send_event(UserEvent::UpdateAvailable(info));
+            }
+            Ok(None) => {
+                info!("startup: up to date");
+            }
+            Err(e) => {
+                warn!("startup update check failed: {:#}", e);
+            }
+        })
+        .ok();
+}
+
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -174,7 +335,7 @@ fn main() -> Result<()> {
         .init();
 
     info!(
-        version = env!("CARGO_PKG_VERSION"),
+        version = CURRENT_VERSION,
         "claude-usage-tray starting"
     );
 
@@ -227,7 +388,10 @@ fn main() -> Result<()> {
             .context("spawn update forwarder")?;
     }
 
-    // Request first refresh immediately.
+    // Maybe check for a new version at startup (throttled by config).
+    maybe_spawn_startup_update_check(&cfg, proxy.clone());
+
+    // Request first usage refresh immediately.
     let _ = cmd_tx.send(PollerCommand::RefreshNow);
 
     let mut app = App {
@@ -237,6 +401,9 @@ fn main() -> Result<()> {
         poller_cmd_tx: cmd_tx,
         stats_window: None,
         settings_window: None,
+        update_window: None,
+        pending_update: None,
+        proxy,
     };
 
     event_loop.run_app(&mut app).context("run event loop")?;

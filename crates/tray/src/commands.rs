@@ -6,6 +6,7 @@ pub enum Command {
     OpenStats,
     OpenClaudeSettings,
     ToggleAutostart,
+    CheckForUpdates,
     Quit,
 }
 
@@ -14,6 +15,7 @@ pub struct MenuItemIds {
     pub stats: String,
     pub claude_settings: String,
     pub autostart: String,
+    pub check_updates: String,
     pub quit: String,
 }
 
@@ -27,6 +29,8 @@ impl MenuItemIds {
             Some(Command::OpenClaudeSettings)
         } else if id == self.autostart {
             Some(Command::ToggleAutostart)
+        } else if id == self.check_updates {
+            Some(Command::CheckForUpdates)
         } else if id == self.quit {
             Some(Command::Quit)
         } else {

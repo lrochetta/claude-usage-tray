@@ -6,6 +6,29 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), semver.
 
 ---
 
+## [0.2.0] - 2026-04-19
+
+Minor — in-app auto-update from GitHub Releases.
+
+### Added
+- **Auto-update check at startup**: queries the GitHub Releases API for the latest `lrochetta/claude-usage-tray` tag and, if strictly newer than the running version, pops an in-app modal with the release notes and Install / Later buttons.
+- **Throttled startup check**: configurable interval (default 6h) via `auto_update.check_interval_hours`; timestamp stored in `auto_update.last_check_ts_ms` to survive restarts.
+- **Config toggle**: `auto_update.check_enabled = false` disables all startup checks for privacy / air-gapped setups. Manual "Check for updates…" still works.
+- **Manual menu item "Check for updates…"**: forces a fresh check on demand, shows either the update modal or an "Up to date" confirmation.
+- **One-click install**: "Install & restart" downloads the matching Windows-x64 binary, atomically replaces the running exe via `self_replace`, then exits cleanly so Windows picks up the new binary on next launch.
+- **IPC-driven modal**: update dialog uses `wry`'s `with_ipc_handler` to route button clicks back to Rust (`window.ipc.postMessage("install" | "later" | "close")`).
+
+### Changed
+- `Cargo.toml` workspace tray crate now pulls `self_update 0.42` (rustls, compression-flate2, archive-zip) and `semver 1`.
+- `Config` schema: new `AutoUpdateConfig` struct with `check_enabled` (default `true`), `auto_install` (default `false`, always prompt), `last_check_ts_ms`, `check_interval_hours` (default 6). Backward-compatible via `#[serde(default)]`.
+
+### Notes
+- Current version compared against the latest tag using `semver::Version`; downgrade is never automatic.
+- Update checks are silent on network failure — no tooltip noise; logged at `warn` only.
+- Install fails gracefully: any error surfaces through the tray tooltip; the user can retry from the menu.
+
+---
+
 ## [0.1.1] - 2026-04-19
 
 Patch — better UX on PCs without Claude Code logged in.

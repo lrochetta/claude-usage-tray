@@ -27,3 +27,6 @@ winit = { version = "0.30", default-features = false, features = ["rwh_06"] }
 wry = "0.55"
 open = "5"
 auto-launch = "0.5"
+# Auto-update from GitHub Releases. rustls to avoid OpenSSL on Windows.
+self_update = { version = "0.42", default-features = false, features = ["rustls", "compression-flate2", "archive-zip"] }
+semver = "1"

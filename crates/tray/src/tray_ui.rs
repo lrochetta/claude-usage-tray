@@ -23,6 +23,7 @@ impl TrayUi {
         let stats = MenuItem::new("View stats…", true, None);
         let claude_settings = MenuItem::new("Open Claude settings", true, None);
         let autostart = CheckMenuItem::new("Start with Windows", true, autostart_enabled, None);
+        let check_updates = MenuItem::new("Check for updates…", true, None);
         let sep = PredefinedMenuItem::separator();
         let quit = MenuItem::new("Quit", true, None);
 
@@ -31,6 +32,7 @@ impl TrayUi {
         menu.append(&claude_settings)?;
         menu.append(&sep)?;
         menu.append(&autostart)?;
+        menu.append(&check_updates)?;
         menu.append(&sep)?;
         menu.append(&quit)?;
 
@@ -48,6 +50,7 @@ impl TrayUi {
             stats: stats.id().0.clone(),
             claude_settings: claude_settings.id().0.clone(),
             autostart: autostart.id().0.clone(),
+            check_updates: check_updates.id().0.clone(),
             quit: quit.id().0.clone(),
         };
 

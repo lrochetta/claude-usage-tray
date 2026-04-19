@@ -46,6 +46,49 @@ pub struct Config {
     /// Lower priority than the `CLAUDE_OAUTH_TOKEN` env var.
     #[serde(default)]
     pub oauth_token_override: Option<String>,
+
+    /// Auto-update behavior (check GitHub Releases at startup, prompt the
+    /// user when a newer version is available).
+    #[serde(default)]
+    pub auto_update: AutoUpdateConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutoUpdateConfig {
+    /// Query the update endpoint at startup (throttled by `check_interval_hours`).
+    #[serde(default = "default_check_enabled")]
+    pub check_enabled: bool,
+
+    /// Apply updates silently without prompting. If false (default), the user
+    /// sees a modal on each new version and chooses Install / Later.
+    #[serde(default)]
+    pub auto_install: bool,
+
+    /// Epoch-ms of the last successful remote check. Used for throttling.
+    #[serde(default)]
+    pub last_check_ts_ms: i64,
+
+    /// Minimum interval between remote checks, in hours.
+    #[serde(default = "default_check_interval_hours")]
+    pub check_interval_hours: u32,
+}
+
+fn default_check_enabled() -> bool {
+    true
+}
+fn default_check_interval_hours() -> u32 {
+    6
+}
+
+impl Default for AutoUpdateConfig {
+    fn default() -> Self {
+        Self {
+            check_enabled: default_check_enabled(),
+            auto_install: false,
+            last_check_ts_ms: 0,
+            check_interval_hours: default_check_interval_hours(),
+        }
+    }
 }
 
 fn default_api_poll_secs() -> u64 {
@@ -71,6 +114,7 @@ impl Default for Config {
             alert_threshold_pct: default_alert_threshold(),
             credentials_path_override: None,
             oauth_token_override: None,
+            auto_update: AutoUpdateConfig::default(),
         }
     }
 }

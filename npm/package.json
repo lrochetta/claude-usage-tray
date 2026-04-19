@@ -1,6 +1,6 @@
 {
   "name": "claude-usage-tray",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Windows system tray icon showing Claude Code session + weekly usage percentages.",
   "bin": {
     "claude-usage-tray": "bin/claude-usage-tray.js"
