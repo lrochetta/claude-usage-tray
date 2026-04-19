@@ -1,0 +1,43 @@
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock
+
+# Allow lock file at root for reproducible builds
+!/Cargo.lock
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Build outputs
+dist/
+*.exe
+*.zip
+
+# Environment / secrets
+.env
+.env.*
+.credentials/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# SQLite runtime
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Coverage
+coverage/

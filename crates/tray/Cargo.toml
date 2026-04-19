@@ -1,0 +1,29 @@
+[package]
+name = "claude-usage-tray"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Windows system tray icon showing Claude Code session usage percentage"
+
+[[bin]]
+name = "claude-usage-tray"
+path = "src/main.rs"
+
+[dependencies]
+claude-usage-tray-core = { path = "../core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+crossbeam-channel = { workspace = true }
+jiff = { workspace = true }
+
+tray-icon = "0.19"
+winit = { version = "0.30", default-features = false, features = ["rwh_06"] }
+wry = "0.55"
+open = "5"
+auto-launch = "0.5"

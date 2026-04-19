@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  rust-check:
+    name: cargo check / clippy / test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Linux system deps
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxdo-dev libgtk-3-dev libayatana-appindicator3-dev
+
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+
+      - name: cargo check
+        run: cargo check --workspace --all-targets
+
+      - name: cargo clippy (non-blocking)
+        run: cargo clippy --workspace --all-targets -- -D warnings || true
+
+      - name: cargo test
+        run: cargo test --workspace --no-fail-fast
+
+  npm-lint:
+    name: npm wrapper sanity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Syntax-check JS files
+        run: |
+          node --check npm/install.js
+          node --check npm/bin/claude-usage-tray.js
+          node --check scripts/sync-versions.mjs
+      - name: Validate package.json
+        run: node -e "JSON.parse(require('fs').readFileSync('npm/package.json','utf8'))"
