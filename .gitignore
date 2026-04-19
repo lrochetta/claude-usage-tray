@@ -20,6 +20,9 @@ dist/
 .env.*
 .credentials/
 
+# Claude Code session handoff (internal context for AI-assisted dev)
+.claude-context/
+
 # IDE
 .vscode/
 .idea/
