@@ -334,10 +334,7 @@ fn main() -> Result<()> {
         )
         .init();
 
-    info!(
-        version = CURRENT_VERSION,
-        "claude-usage-tray starting"
-    );
+    info!(version = CURRENT_VERSION, "claude-usage-tray starting");
 
     let cfg = Config::load_or_default().context("load config")?;
     let db_path = Config::database_path().context("resolve db path")?;
