@@ -13,6 +13,6 @@ pub mod storage;
 
 pub use config::Config;
 pub use error::{CoreError, Result};
-pub use fetch::{fetch_usage, fetch_usage_from_credentials};
+pub use fetch::{fetch_usage, fetch_usage_from_credentials, fetch_usage_with_config};
 pub use model::{ThresholdColor, UsageSnapshot};
 pub use storage::Database;

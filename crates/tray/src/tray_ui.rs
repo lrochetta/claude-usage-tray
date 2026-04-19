@@ -79,7 +79,8 @@ impl TrayUi {
         if let Ok(icon) = render_unknown_icon() {
             let _ = self.tray.set_icon(Some(icon));
         }
-        let short: String = msg.chars().take(80).collect();
+        // Windows tray tooltip caps around 128 chars. Leave ~20 for the "Claude Code\nError: " prefix.
+        let short: String = msg.chars().take(108).collect();
         let _ = self
             .tray
             .set_tooltip(Some(format!("Claude Code\nError: {}", short)));

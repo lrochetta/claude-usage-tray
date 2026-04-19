@@ -29,7 +29,7 @@ pub enum CoreError {
     #[error("rate limited (HTTP 429). retry after {retry_after_secs}s")]
     RateLimited { retry_after_secs: u64 },
 
-    #[error("credentials file not found at {path}")]
+    #[error("Claude Code not logged in on this PC. Run `claude login` or set CLAUDE_OAUTH_TOKEN (searched: {path})")]
     CredentialsNotFound { path: String },
 
     #[error("credentials malformed: {0}")]

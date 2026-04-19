@@ -34,6 +34,18 @@ pub struct Config {
     /// Override for ~/.claude/.credentials.json path (advanced).
     #[serde(default)]
     pub credentials_path_override: Option<PathBuf>,
+
+    /// Raw OAuth access token override. If set (and non-empty), the poller
+    /// uses this directly and skips the credentials-file lookup.
+    ///
+    /// Escape hatch for machines where Claude Code isn't logged in but you
+    /// already have a valid token (e.g. copied from another PC, provided by
+    /// a team admin, or rotated out-of-band). No refresh: when it expires,
+    /// update this value.
+    ///
+    /// Lower priority than the `CLAUDE_OAUTH_TOKEN` env var.
+    #[serde(default)]
+    pub oauth_token_override: Option<String>,
 }
 
 fn default_api_poll_secs() -> u64 {
@@ -58,6 +70,7 @@ impl Default for Config {
             autostart: false,
             alert_threshold_pct: default_alert_threshold(),
             credentials_path_override: None,
+            oauth_token_override: None,
         }
     }
 }

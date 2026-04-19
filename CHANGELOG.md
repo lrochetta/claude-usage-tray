@@ -6,6 +6,24 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), semver.
 
 ---
 
+## [0.1.1] - 2026-04-19
+
+Patch — better UX on PCs without Claude Code logged in.
+
+### Added
+- **`CLAUDE_OAUTH_TOKEN` env var** override: set it before launching the tray and the app skips the `.credentials.json` lookup. Useful for machines without Claude Code installed.
+- **`oauth_token_override` config field** (`config.toml`): same purpose as the env var but persistent.
+- New public API `claude_usage_tray_core::fetch_usage_with_config(cfg)`.
+
+### Changed
+- Tooltip tray error for missing credentials now reads **"Claude Code not logged in on this PC. Run `claude login` or set CLAUDE_OAUTH_TOKEN"** (actionable) instead of the raw path.
+- Error-text budget in tooltips bumped from 80 → 108 chars so actionable hints aren't truncated.
+
+### Known limitation
+- Env / config override tokens are raw access tokens with no refresh; when they expire, the app shows the auth error until the user updates the value. Use the credentials-file path if you want transparent refresh.
+
+---
+
 ## [0.1.0] - 2026-04-19
 
 Initial release. Windows system tray app showing Claude Code session & weekly usage percentages. Local SQLite time-series for usage analytics.

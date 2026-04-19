@@ -114,8 +114,9 @@ fn run(
 }
 
 fn poll_once(cfg: &Config, db: &Database) -> Result<UsageSnapshot, CoreError> {
-    let creds_path = cfg.credentials_path()?;
-    let snap = claude_usage_tray_core::fetch_usage_from_credentials(&creds_path)?;
+    // Config-aware fetch: CLAUDE_OAUTH_TOKEN env > config.oauth_token_override
+    // > ~/.claude/.credentials.json (with auto-refresh).
+    let snap = claude_usage_tray_core::fetch_usage_with_config(cfg)?;
     db.insert(&snap)?;
     // Opportunistic cleanup: ~1% chance per poll
     if fastrand_1_in(100) {

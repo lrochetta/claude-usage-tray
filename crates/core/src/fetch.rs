@@ -46,6 +46,37 @@ struct OauthCreds {
 /// Convenience: load config, read credentials, fetch.
 pub fn fetch_usage() -> Result<UsageSnapshot> {
     let cfg = Config::load_or_default()?;
+    fetch_usage_with_config(&cfg)
+}
+
+/// Config-aware fetch. Token resolution priority:
+///
+/// 1. `CLAUDE_OAUTH_TOKEN` environment variable (raw access token, no refresh)
+/// 2. `config.oauth_token_override` (same deal — raw, no refresh)
+/// 3. `.credentials.json` at `config.credentials_path()` (with auto-refresh)
+///
+/// Paths 1 and 2 are escape hatches for PCs without Claude Code installed.
+/// Path 3 is the normal case and enables transparent token refresh.
+pub fn fetch_usage_with_config(cfg: &Config) -> Result<UsageSnapshot> {
+    // (1) Env var override
+    if let Ok(tok) = std::env::var("CLAUDE_OAUTH_TOKEN") {
+        let tok = tok.trim();
+        if !tok.is_empty() {
+            tracing::debug!("fetch: using token from CLAUDE_OAUTH_TOKEN env");
+            let raw = call_usage_endpoint(tok)?;
+            return parse_usage_response(&raw);
+        }
+    }
+    // (2) Config override
+    if let Some(tok) = cfg.oauth_token_override.as_deref() {
+        let tok = tok.trim();
+        if !tok.is_empty() {
+            tracing::debug!("fetch: using token from config.oauth_token_override");
+            let raw = call_usage_endpoint(tok)?;
+            return parse_usage_response(&raw);
+        }
+    }
+    // (3) Credentials file with refresh
     fetch_usage_from_credentials(&cfg.credentials_path()?)
 }
 
